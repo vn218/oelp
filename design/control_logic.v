@@ -60,7 +60,7 @@ reg buffer_state;
 wire [WIDTH-1:0] buffer_1;
 wire [WIDTH-1:0] buffer_2;
 assign buffer_1 = buffer[0];
-assign buffer_2 = buffer[WIDTH-1];
+assign buffer_2 = buffer[SPECTRAL_BANDS-1];
 reg buffer_1_valid;
 reg buffer_2_valid;
 integer i;
@@ -103,12 +103,17 @@ reg [$clog2(SPECTRAL_BANDS):0] mac_in_counter;
 reg [MAC_WIDTH-1:0] max_dist;
 reg max_dist_changed;
 reg load; //to load contents of buffer to memory
+reg delayed_in_axi_valid;
+reg [WIDTH-1:0] delayed_pixel_in;
+
 
 wire [WIDTH-1:0] sub1 , sub2, sub_1_in_1, sub_1_in_2, sub_2_in_1, sub_2_in_2;
 
 
 assign sub1 = sub_1_in_1 + (~sub_1_in_2) + 1;
 assign sub2 = sub_2_in_1 + (~sub_2_in_2) + 1;
+assign sub_1_in_1 = mux2;
+assign sub_1_in_2 = mux1;
 
 assign mux0 = mux0_s ? pixel_in : buffer_2;
 assign mux1 = mux1_s ? endmembers_out_2 : m1_out_2;
@@ -116,7 +121,7 @@ assign mux1 = mux1_s ? endmembers_out_2 : m1_out_2;
 always @ (*) begin
     case (mux2_s)
     'b00 : mux2 = buffer_2;
-    'b01 : mux2 = pixel_in;
+    'b01 : mux2 = delayed_pixel_in;
     'b10 : mux2 = endmembers_out_2;
     endcase
 end
@@ -140,13 +145,24 @@ end
 
 always @ (posedge clk) begin
     if (rst) begin
+        delayed_pixel_in <= 0;
+        delayed_in_axi_valid <= 0;
+    end
+    if ( state != PRE_INIT) begin
+        delayed_pixel_in <= pixel_in;
+        delayed_in_axi_valid <= in_axi_valid;
+    end    
+end
+
+always @ (posedge clk) begin
+    if (rst) begin
         in_pixel_counter <= 0;
         in_spectral_counter <= 0;
     end
     else if (in_axi_valid) begin
         if (in_spectral_counter == SPECTRAL_BANDS - 1 ) begin
             in_spectral_counter <= 0;
-            if (in_pixel_counter <= TOTAL_PIXELS - 1) begin
+            if (in_pixel_counter == TOTAL_PIXELS - 1) begin
                 in_pixel_counter <= 0;
             end
             else begin
@@ -199,11 +215,12 @@ always @ (posedge clk) begin
         PRE_INIT: begin              //filling input in m1 via port 1
             if (in_axi_valid) begin
                 intr <= 0;         
-            end
-            if ( endmembers_column_counter_1 == SPECTRAL_BANDS-1) begin
+                if ( endmembers_column_counter_1 == SPECTRAL_BANDS-1) begin
                     state <= INIT_m2;
                     intr <= 1;
-            end   
+                end 
+            end
+              
         end
        INIT_m1 : begin
             if (in_axi_valid) begin
@@ -220,7 +237,7 @@ always @ (posedge clk) begin
                     intr <= 1;
                     mac_reset <= 1;                   
                     mac_in_counter <= 0;
-                    if (in_pixel_counter == 0) begin
+                    if (in_pixel_counter == 1) begin
                         max_dist_changed <= 0;
                         if (max_dist_changed) begin
                             state <= INIT_m2;
@@ -233,7 +250,7 @@ always @ (posedge clk) begin
                     if ( mac_in > max_dist) begin
                         max_dist <= mac_in;
                         load <= 1;
-                        if (in_pixel_counter == 0) begin
+                        if (in_pixel_counter == 1) begin
                             state <= INIT_m2;
                         end
                         else begin
@@ -260,11 +277,12 @@ always @ (posedge clk) begin
                 end
             end
             if (mac_valid_in) begin    
-                intr <= 1;
-                mac_reset <= 1;
+
                 if ( mac_in_counter == SPECTRAL_BANDS-1) begin
+                    intr <= 1;
+                    mac_reset <= 1;
                     mac_in_counter <= 0;
-                    if (in_pixel_counter == 0) begin
+                    if (in_pixel_counter == 1) begin
                         max_dist_changed <= 0;
                         if (max_dist_changed) begin
                             state <= INIT_m1;
@@ -277,7 +295,7 @@ always @ (posedge clk) begin
                     if ( mac_in > max_dist) begin
                         max_dist <= mac_in;
                         load <= 1;
-                        if (in_pixel_counter == 0) begin
+                        if (in_pixel_counter == 1) begin
                             state <= INIT_m1;
                         end
                         else begin
@@ -330,19 +348,19 @@ always @ (*) begin
     end
     INIT_m1: begin
         mux2_s = 'b01;
-        mux1_s = 0;
-        endmembers_wr_en_1 = in_axi_valid & load;
-        mac_out_1 = {{MAC_WIDTH - WIDTH{sub1[WIDTH - 1]}},sub1};
-        mac_out_2 = {{MAC_WIDTH - WIDTH{sub1[WIDTH - 1]}},sub1};
-        mac_valid_out = in_axi_valid;     
-    end
-    INIT_m2: begin
-        mux2_s = 'b01;
         mux1_s = 1;
         m1_wr_en_1 = in_axi_valid & load;
         mac_out_1 = {{MAC_WIDTH - WIDTH{sub1[WIDTH - 1]}},sub1};
+        mac_out_2 = {{MAC_WIDTH - WIDTH{sub1[WIDTH - 1]}},sub1};
+        mac_valid_out = delayed_in_axi_valid;     
+    end
+    INIT_m2: begin
+        mux2_s = 'b01;
+        mux1_s = 0;
+        endmembers_wr_en_1 = in_axi_valid & load;
+        mac_out_1 = {{MAC_WIDTH - WIDTH{sub1[WIDTH - 1]}},sub1};
         mac_out_2 = {{MAC_WIDTH - WIDTH{sub1[WIDTH - 1]}},sub1}; 
-        mac_valid_out = in_axi_valid;  
+        mac_valid_out = delayed_in_axi_valid;  
     end
     FINISH: begin
         finish = 1;
