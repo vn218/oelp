@@ -56,7 +56,6 @@ localparam IDLE = 0,
 
 
 reg [WIDTH-1:0] buffer [SPECTRAL_BANDS-1:0];
-reg buffer_state;
 wire [WIDTH-1:0] buffer_1;
 wire [WIDTH-1:0] buffer_2;
 assign buffer_1 = buffer[0];
@@ -99,8 +98,9 @@ reg [WIDTH-1:0] mux2;
 reg mux0_s, mux1_s;
 reg [1:0] mux2_s;
 
-reg [$clog2(SPECTRAL_BANDS):0] mac_in_counter;
+reg [$clog2(SPECTRAL_BANDS)-1:0] mac_in_counter;
 reg [MAC_WIDTH-1:0] max_dist;
+reg [$clog2(TOTAL_PIXELS)-1:0] endmembers_index [TOTAL_ENDMEMBERS-1:0];
 reg max_dist_changed;
 reg load; //to load contents of buffer to memory
 reg delayed_in_axi_valid;
@@ -175,24 +175,6 @@ always @ (posedge clk) begin
     end
 end
 
-/*always @ (posedge clk) begin
-    if (rst) begin
-        endmembers_column_counter_1 <= 0;
-        endmembers_column_counter_2 <= 0;
-        endmembers_row_counter_1 <= 0;
-        endmembers_row_counter_2 <= 0;
-    end
-    else if (endmembers_wr_en_1 | m1_wr_en_1) begin
-        if ( endmembers_column_counter_1 == SPECTRAL_BANDS-1) begin
-            endmembers_column_counter_1 <= 0;
-        end
-        else begin
-            endmembers_column_counter_1 <= endmembers_column_counter_1 + 1;
-        end    
-    end
-end
-*/
-
 always @ (posedge clk) begin
     if (rst) begin
         state <= IDLE;
@@ -242,20 +224,21 @@ always @ (posedge clk) begin
                         if (max_dist_changed) begin
                             state <= INIT_m2;
                         end
-                        else if (!max_dist_changed & !(mac_in > max_dist)) begin
+                        else begin
                             state <= FINISH;
                             intr <= 0;
                         end 
                     end
                     if ( mac_in > max_dist) begin
                         max_dist <= mac_in;
-                        load <= 1;
-                        if (in_pixel_counter == 1) begin
-                            state <= INIT_m2;
+                        if ( in_pixel_counter == 0) begin
+                            endmembers_index[0] <= {$clog2(TOTAL_PIXELS){1'b1}};
                         end
                         else begin
-                            max_dist_changed <= 1;
+                            endmembers_index[0] <= in_pixel_counter + {$clog2(TOTAL_PIXELS){1'b1}};    
                         end
+                        load <= 1;                       
+                        max_dist_changed <= 1;                        
                     end
                     else begin    
                         load <= 0;
@@ -277,30 +260,30 @@ always @ (posedge clk) begin
                 end
             end
             if (mac_valid_in) begin    
-
                 if ( mac_in_counter == SPECTRAL_BANDS-1) begin
                     intr <= 1;
-                    mac_reset <= 1;
+                    mac_reset <= 1;                   
                     mac_in_counter <= 0;
                     if (in_pixel_counter == 1) begin
                         max_dist_changed <= 0;
                         if (max_dist_changed) begin
                             state <= INIT_m1;
                         end
-                        else if (!max_dist_changed & !(mac_in > max_dist)) begin
+                        else begin
                             state <= FINISH;
                             intr <= 0;
                         end 
                     end
                     if ( mac_in > max_dist) begin
                         max_dist <= mac_in;
-                        load <= 1;
-                        if (in_pixel_counter == 1) begin
-                            state <= INIT_m1;
+                        if ( in_pixel_counter == 0) begin
+                            endmembers_index[1] <= {$clog2(TOTAL_PIXELS){1'b1}};
                         end
                         else begin
-                            max_dist_changed <= 1;
+                            endmembers_index[1] <= in_pixel_counter + {$clog2(TOTAL_PIXELS){1'b1}};    
                         end
+                        load <= 1;                       
+                        max_dist_changed <= 1;                        
                     end
                     else begin    
                         load <= 0;
@@ -309,9 +292,7 @@ always @ (posedge clk) begin
                 else begin
                     mac_in_counter <= mac_in_counter + 1;
                 end
-            end
-            
-        
+            end       
         end
         endcase
         
@@ -320,11 +301,14 @@ always @ (posedge clk) begin
             mac_reset <= 0;
         end
         
-        if ( endmembers_column_counter_1 == SPECTRAL_BANDS-1) begin
-            endmembers_column_counter_1 <= 0;
-        end
-        else if (endmembers_wr_en_1 | m1_wr_en_1) begin
-            endmembers_column_counter_1 <= endmembers_column_counter_1 + 1;    
+       
+        if (endmembers_wr_en_1 | m1_wr_en_1) begin
+            if ( endmembers_column_counter_1 == SPECTRAL_BANDS-1) begin
+                endmembers_column_counter_1 <= 0;
+            end
+            else begin
+                endmembers_column_counter_1 <= endmembers_column_counter_1 + 1;    
+            end
         end
     
     end        
