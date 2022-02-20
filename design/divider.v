@@ -1,6 +1,6 @@
 module divider
   #(parameter I_WIDTH = 16,
-   		        F_WIDTH = 16,
+   	      F_WIDTH = 16,
               OUT_I_WIDTH = 16,
               OUT_F_WIDTH = 16)  
  (
@@ -11,12 +11,12 @@ module divider
 );
   
   parameter IDLE = 0,
-  			    SHIFT = 1,
-  			    ITERATE = 2,
+  	    SHIFT = 1,
+            ITERATE = 2,
             DONE = 3;
   
   localparam A = 32'b10_1101_0010_1101_0010,
-  			     B = 32'b01_1110_0001_1110_0001;
+  	     B = 32'b01_1110_0001_1110_0001;
   
   localparam iter = 4;
   
@@ -101,8 +101,8 @@ module divider
     ready = 0;
     out_valid = 0;
     case (state) 
-    IDLE : ready = 1;
-    DONE : out_valid = 1;  
+      IDLE : ready = 1;
+      DONE : out_valid = 1;  
 
     endcase
   end 
