@@ -1,9 +1,9 @@
 module divider
   #(parameter I_WIDTH = 16,
-   		F_WIDTH = 16,
-        OUT_I_WIDTH = 16,
-        OUT_F_WIDTH = 16)  
-(
+   		        F_WIDTH = 16,
+              OUT_I_WIDTH = 16,
+              OUT_F_WIDTH = 16)  
+ (
   input [I_WIDTH+F_WIDTH-1:0] N_in, D_in,
   input clk, rst, in_valid,
   output reg ready, out_valid,
@@ -11,8 +11,8 @@ module divider
 );
   
   parameter IDLE = 0,
-  			SHIFT = 1,
-  			ITERATE = 2,
+  			    SHIFT = 1,
+  			    ITERATE = 2,
             DONE = 3;
   
   localparam A = 32'b10_1101_0010_1101_0010,
