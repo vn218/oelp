@@ -16,7 +16,7 @@ module divider
             DONE = 3;
   
   localparam A = 32'b10_1101_0010_1101_0010,
-  			 B = 32'b01_1110_0001_1110_0001;
+  			     B = 32'b01_1110_0001_1110_0001;
   
   localparam iter = 4;
   
