@@ -3,7 +3,7 @@
 
 module inversion 
 #( parameter F_WIDTH = 16,
-  			 I_WIDTH = 16;
+  			 I_WIDTH = 16,
   			 SPECTRAL_BANDS = 103,
              TOTAL_ENDMEMBERS = 20,
              MAC_F_WIDTH_1 = 8,
