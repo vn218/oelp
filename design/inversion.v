@@ -30,7 +30,7 @@ module inversion
   output reg done,
   input start,
   input clk,rst
- );
+ ); 
   
   
   localparam IDLE = 3'b000,
