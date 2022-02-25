@@ -1,13 +1,15 @@
 // Code your design here
 
+`include "divider.sv"
+`include "sqrt.sv"
 
 module inversion 
 #( parameter F_WIDTH = 16,
-  	     I_WIDTH = 16,
-  	     SPECTRAL_BANDS = 103,
+             I_WIDTH = 16,
+             SPECTRAL_BANDS = 103,
              TOTAL_ENDMEMBERS = 20,
              MAC_F_WIDTH_1 = 8,
-             MAC_I_WIDTH_1 = 24  //in_data is right shifted by MAC_I_WIDTH_1 - I_WIDTH before further calculations 
+             MAC_I_WIDTH_1 = 24  //in_data is right shifted by MAC_I_WIDTH_1 - I_WIDTH before further calculations  
   )
  (
   input [I_WIDTH-1:0] U_in,
@@ -30,11 +32,11 @@ module inversion
   output reg done,
   input start,
   input clk,rst
- ); 
+ );
   
   
   localparam IDLE = 3'b000,
-  	     READ = 3'b001,
+             READ = 3'b001,
              CHOL_1 = 3'b010,
              CHOL_SQRT = 3'b011,
              CHOL_DIV = 3'b100, 
@@ -50,24 +52,15 @@ module inversion
   
   reg [F_WIDTH+I_WIDTH-1:0] L [(((TOTAL_ENDMEMBERS)*(TOTAL_ENDMEMBERS+1))>>1)-1:0];
   reg [$clog2(((TOTAL_ENDMEMBERS)*(TOTAL_ENDMEMBERS+1))>>1)-1:0] L_addr_1, L_addr_2, L_addr_3, L_addr_4;
-  wire [$clog2(TOTAL_ENDMEMBERS)-1:0] L_row_1, L_col_1, L_row_2, L_col_2, L_row_3, L_col_3, L_row_4, L_col_4;
+  reg [$clog2(TOTAL_ENDMEMBERS)-1:0] L_row_1, L_col_1, L_row_2, L_col_2;
   reg [$clog2(TOTAL_ENDMEMBERS)-1:0] chol_ctr_r, chol_ctr_w;  // k, j
 
   
-  assign L_addr_1 = (((L_row_1)*(L_row_1+1))>>1) + L_col_1; // read   L(j,k)
-  assign L_addr_2 = (((L_row_2)*(L_row_2+1))>>1) + L_col_2; // read   L(i,k)
-  assign L_addr_3 = (((L_row_3)*(L_row_3+1))>>1) + L_col_3; // write  L(i,j)
-  assign L_addr_4 = (((L_row_4)*(L_row_4+1))>>1) + L_col_4; // read  L(j,j)
+  assign L_addr_1 = (((L_row_1)*(L_row_1+1))>>1) + L_col_1; 
+  assign L_addr_2 = (((L_row_2)*(L_row_2+1))>>1) + L_col_2; 
+
   
-  assign L_row_1 = chol_ctr_w;   
-  assign L_col_1 = chol_ctr_r;   
-  assign L_row_2 = size;         
-  assign L_col_2 = chol_ctr_r;
-  assign L_row_3 = size;
-  assign L_col_3 = chol_ctr_w;
-  assign L_row_4 = chol_ctr_w;
-  assign L_col_4 = chol_ctr_w;
-  
+
   
   
   wire [I_WIDTH+F_WIDTH-1:0] U, new_vectorT;
@@ -93,7 +86,7 @@ module inversion
   reg divider_in_valid;
   wire divider_out_valid;
   assign divider_n = temp;
-  assign divider_d = L[L_addr_4];
+  assign divider_d = L[L_addr_1];
   
   
   wire [I_WIDTH+F_WIDTH-1:0] sqrt_n, sqrt_out;
@@ -182,7 +175,7 @@ module inversion
         CHOL_SQRT : begin
           
           if (sqrt_out_valid) begin
-            L[L_addr_3] <= sqrt_out;
+            L[L_addr_2] <= sqrt_out;
             chol_ctr_w <= 0;
           end
         
@@ -191,7 +184,7 @@ module inversion
         CHOL_DIV : begin
           
           if (divider_out_valid) begin
-            L[L_addr_3] <= divider_out;
+            L[L_addr_2] <= divider_out;
             chol_ctr_w <= chol_ctr_w + 1;
           end
 
@@ -352,6 +345,31 @@ module inversion
         mac_in_1 = L[L_addr_1];
         mac_in_2 = L[L_addr_2];
         mac_mode = 3'b001;
+      end
+    endcase
+  
+  end
+  
+  always @ (*) begin
+    mac_in_valid = mac_in_valid_in;
+    case (state) 
+      CHOL_1 : begin
+        // L(j,k)
+        L_row_1 = chol_ctr_w;   
+        L_col_1 = chol_ctr_r;   
+        
+        // L(i,k)
+        L_row_2 = size;         
+        L_col_2 = chol_ctr_r;
+      end
+      CHOL_SQRT, CHOL_DIV : begin
+        // L(j,j)
+        L_row_1 = chol_ctr_w;
+        L_col_1 = chol_ctr_w;
+        
+        // L(i,j)
+        L_row_2 = size;
+        L_col_2 = chol_ctr_w;       
       end
     endcase
   
