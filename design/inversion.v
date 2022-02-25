@@ -3,8 +3,8 @@
 
 module inversion 
 #( parameter F_WIDTH = 16,
-  			     I_WIDTH = 16,
-  			     SPECTRAL_BANDS = 103,
+  	     I_WIDTH = 16,
+  	     SPECTRAL_BANDS = 103,
              TOTAL_ENDMEMBERS = 20,
              MAC_F_WIDTH_1 = 8,
              MAC_I_WIDTH_1 = 24  //in_data is right shifted by MAC_I_WIDTH_1 - I_WIDTH before further calculations 
@@ -34,7 +34,7 @@ module inversion
   
   
   localparam IDLE = 3'b000,
-  			     READ = 3'b001,
+  	     READ = 3'b001,
              CHOL_1 = 3'b010,
              CHOL_SQRT = 3'b011,
              CHOL_DIV = 3'b100, 
